@@ -5,6 +5,7 @@ from PySide2.QtUiTools import QUiLoader
 from qtpy.QtWidgets import QTreeWidgetItem, QLineEdit
 from qtpy import QtWidgets
 
+
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
@@ -14,12 +15,20 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
+
 class TreePathWindow(object):
-    def __init__(self, startpath, output_le: QLineEdit, sep: str = '/') -> None:
+    def __init__(self, startpath, output_le: QLineEdit, is_windows_os: bool = True) -> None:
         super().__init__()
-        self.selecte_element_path = None
+        self.selected_element_path = None
         self.output_le = output_le
-        self.sep = sep
+        self.is_windows_os = is_windows_os
+
+        if self.is_windows_os:
+            self.sep = "\\"
+        else:
+            self.sep = "/"
+            # startpath= self.sep+startpath
+
         self.main_window = self.load_main_window_from_ui(startpath)
         self.path_tree = self.main_window.path_tree
         self.file_tree = self.main_window.file_tree
@@ -35,8 +44,10 @@ class TreePathWindow(object):
         self.load_tree_directory(current_tree, startpath)
 
     def join(self, str1, str2):
-        if str1 == '' or str2 == '':
-            return str2 + str1
+        if str1 == '' or str2 == '' or str1 == self.sep:
+            return str1 + str2
+        elif str2 == self.sep:
+            return str2+str1
         new_str = str1 + self.sep + str2
         return new_str
 
@@ -51,7 +62,11 @@ class TreePathWindow(object):
             self.history_path.remove('')
 
     def update_tree_with_history(self, tree):
-        complete_path = ''
+        if self.is_windows_os:
+            complete_path = ''
+        else:
+            complete_path = self.sep
+
         current_tree = tree
         for path in self.history_path:
             complete_path = self.join(complete_path, path)
@@ -64,7 +79,7 @@ class TreePathWindow(object):
         try:
             self.monitor_le.setText('')
             if not item.isExpanded():
-                if len(self.history_path) == 1 and self.sep == '\\':
+                if len(self.history_path) == 1 and self.is_windows_os:
                     self.history_path[0] = self.history_path[0].replace(self.sep, '')
 
                 selected_direcotry = item.text(0)
@@ -86,7 +101,7 @@ class TreePathWindow(object):
                 index = self.history_path.index(item.text(0).replace(self.sep, ''))
                 self.history_path = self.history_path[:index + 1]
 
-                if len(self.history_path) == 1 and self.sep == '\\':
+                if len(self.history_path) == 1 and self.is_windows_os:
                     self.history_path[0] += self.sep
 
                 self.path_tree.clear()
@@ -101,7 +116,10 @@ class TreePathWindow(object):
         self.update_history_path(self.path_le.text())
         selected_element = item.text(0)
 
-        complete_path = ''
+        if self.is_windows_os:
+            complete_path = ''
+        else:
+            complete_path = self.sep
 
         current_history = self.history_path
         if item.isExpanded():
@@ -111,10 +129,10 @@ class TreePathWindow(object):
         for path in current_history:
             complete_path = self.join(complete_path, path)
 
-        if complete_path == '' and not self.sep in selected_element:
-            self.selecte_element_path = selected_element + self.sep
+        if self.is_windows_os and complete_path == '' and not self.sep in selected_element:
+            self.selected_element_path = selected_element + self.sep
         else:
-            self.selecte_element_path = self.join(complete_path, selected_element)
+            self.selected_element_path = self.join(complete_path, selected_element)
 
     def change_complete_path_with_label(self):
         current_path = self.path_le.text()
@@ -137,13 +155,11 @@ class TreePathWindow(object):
             self.main_window.path_tree.addTopLevelItem(parent_itm)
 
     def get_selecte_element(self):
-        self.output_le.setText(self.selecte_element_path)
+        self.output_le.setText(self.selected_element_path)
         self.main_window.close()
 
     def close_app(self):
         self.main_window.close()
-
-
 
     def load_main_window_from_ui(self, startpath):
         loader = QUiLoader()
@@ -151,9 +167,10 @@ class TreePathWindow(object):
         def mainwindow_setup(w):
             w.setWindowTitle("Select file")
 
-        window = loader.load("TreePathProject"+self.sep+"tree_path.ui", None)
+        window = loader.load("TreePathProject" + self.sep + "tree_path.ui", None)
 
         mainwindow_setup(window)
+
         window.path_le.setText(startpath)
         window.path_tree.setHeaderHidden(True)
         window.file_tree.setHeaderHidden(True)
@@ -176,11 +193,10 @@ class TreePathWindow(object):
 def main():
     # os.chdir(os.path.dirname(os.path.dirname(__file__)))
     startpath = os.getcwd()
-    # startpath = r"C:\Users"
 
     app = QtWidgets.QApplication(sys.argv)
     temp = QLineEdit()
-    tre_wnd = TreePathWindow(startpath, temp, os.sep)
+    tre_wnd = TreePathWindow(startpath, temp, is_windows_os=os.sep == "\\")
     tre_wnd.show()
     app.exec_()
 
